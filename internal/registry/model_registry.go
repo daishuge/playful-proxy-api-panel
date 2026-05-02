@@ -829,7 +829,18 @@ func (r *ModelRegistry) buildAvailableModelsLocked(handlerType string, now time.
 		}
 	}
 
+	sort.SliceStable(models, func(i, j int) bool {
+		return modelIDFromMap(models[i]) < modelIDFromMap(models[j])
+	})
 	return models, expiresAt
+}
+
+func modelIDFromMap(model map[string]any) string {
+	if model == nil {
+		return ""
+	}
+	id, _ := model["id"].(string)
+	return id
 }
 
 func cloneModelMaps(models []map[string]any) []map[string]any {

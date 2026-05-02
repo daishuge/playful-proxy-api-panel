@@ -277,7 +277,7 @@ func ParseCodexImageToolUsage(data []byte) (usage.Detail, bool) {
 
 func ParseOpenAIUsage(data []byte) usage.Detail {
 	usageNode := gjson.ParseBytes(data).Get("usage")
-	if !usageNode.Exists() {
+	if !usageNode.Exists() || !usageNode.IsObject() {
 		return usage.Detail{}
 	}
 	return parseOpenAIStyleUsageNode(usageNode)
@@ -320,7 +320,7 @@ func ParseOpenAIStreamUsage(line []byte) (usage.Detail, bool) {
 		return usage.Detail{}, false
 	}
 	usageNode := gjson.GetBytes(payload, "usage")
-	if !usageNode.Exists() {
+	if !usageNode.Exists() || !usageNode.IsObject() {
 		return usage.Detail{}, false
 	}
 	detail := usage.Detail{
