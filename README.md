@@ -1,89 +1,44 @@
 # Playful Proxy API Panel (PPAP)
 
-> [!NOTE]
-> **Playful Proxy API Panel (PPAP)** is a community fork of [`router-for-me/CLIProxyAPI`](https://github.com/router-for-me/CLIProxyAPI). It tracks upstream compatibility, but makes a different product choice: keep the proxy surface familiar while shipping a first-party management panel, persistent usage accounting, Codex-focused model aliases, and local cost estimation in one release stream.
->
-> Use upstream CLIProxyAPI when you want the vanilla project. Use PPAP when you want the upstream proxy plus built-in observability, release-coupled panel assets, and Codex/usage tooling maintained in this repository.
->
-> Install this fork manually from this repository's Releases. Do not use the upstream package channel when you need PPAP-specific statistics, pricing, or panel changes.
-
 English | [中文](README_CN.md) | [日本語](README_JA.md)
 
-A proxy server that provides OpenAI/Gemini/Claude/Codex compatible API interfaces for CLI.
+**PPAP is a self-hosted, upstream-compatible CLIProxyAPI fork with a built-in management panel, persistent usage analytics, and Codex-focused model ergonomics.**
 
-It now also supports OpenAI Codex (GPT models) and Claude Code via OAuth.
+It keeps the familiar OpenAI/Gemini/Claude/Codex-compatible proxy surface from [`router-for-me/CLIProxyAPI`](https://github.com/router-for-me/CLIProxyAPI), then adds the pieces that matter when you run it every day: usage snapshots, cost estimates, panel assets released with the backend, and safer thinking-strength aliases.
 
-So you can use local or multi-account CLI access with OpenAI(include Responses)/Gemini/Claude-compatible clients and SDKs.
+Use upstream CLIProxyAPI when you want the vanilla project. Use PPAP when you want the same proxy style with more local visibility and a tighter operations loop.
 
-## Overview
+## What Makes PPAP Different
 
-- OpenAI/Gemini/Claude/Codex compatible API endpoints for CLI models
-- OpenAI Codex support (GPT models) via OAuth login
-- Claude Code support via OAuth login
-- Amp CLI and IDE extensions support with provider routing
+- **Usage analytics built in**: restored `/v0/management/usage`, import/export endpoints, persistent local snapshots, cache hit rate, first-byte latency, average latency, TPS, token breakdowns, and per-model/per-API rollups.
+- **Panel and backend released together**: the management panel source lives in [`web/management-panel`](web/management-panel), and each release ships the matching `management.html`.
+- **Codex is treated as a primary workflow**: OpenAI Codex OAuth, GPT model routing, Spark pricing estimation, and thinking-strength aliases are maintained in this fork.
+- **Thinking aliases are predictable**: both `model(high)` and `model-high` work for `low`, `medium`, `high`, and `xhigh`; explicit aliases and exact model names stay higher priority.
+- **Upstream compatibility is still the baseline**: upstream fixes are merged where they do not conflict with PPAP behavior. Recent Redis usage queue retention support is included.
+
+## Core Features
+
+- OpenAI/Gemini/Claude/Codex-compatible API endpoints for CLI models
+- OAuth login for OpenAI Codex and Claude Code
 - Streaming and non-streaming responses
-- Function calling/tools support
-- Multimodal input support (text and images)
-- Multiple accounts with round-robin load balancing (Gemini, OpenAI, Claude)
-- Simple CLI authentication flows (Gemini, OpenAI, Claude)
-- Generative Language API Key support
-- AI Studio Build multi-account load balancing
-- Gemini CLI multi-account load balancing
-- Claude Code multi-account load balancing
-- OpenAI Codex multi-account load balancing
-- OpenAI-compatible upstream providers via config (e.g., OpenRouter)
-- Open management panel frontend source maintained in this repository: [`web/management-panel`](https://github.com/daishuge/playful-proxy-api-panel/tree/main/web/management-panel)
-- Reusable Go SDK for embedding the proxy (see `docs/sdk-usage.md`)
+- Function calling/tools and multimodal input
+- Multi-account routing and load balancing
+- Gemini CLI, AI Studio Build, Claude Code, OpenAI Codex, and Amp CLI support
+- OpenAI-compatible upstream providers such as OpenRouter through config
+- Reusable Go SDK for embedding the proxy
 
-## Why PPAP
+## Quick Start
 
-PPAP is not a UI-only wrapper and not a protocol rewrite. It is a maintained fork for people who want CLIProxyAPI compatibility with a tighter self-hosted operations story.
-
-| Need | Upstream CLIProxyAPI | PPAP |
-| --- | --- | --- |
-| Core proxy compatibility | Yes | Yes, tracked through upstream merges |
-| Built-in usage accounting | Limited/upstream-dependent | Restored management endpoints, import/export, and persistent snapshots |
-| Operational metrics | Basic request data | Cache hit rate, first-byte latency, average latency, TPS, token breakdowns, and per-API/per-model rollups |
-| Management panel | External or release-dependent | Frontend source lives in this repo; releases publish matching `management.html` |
-| Codex model ergonomics | Model names mostly pass through | Codex Spark pricing estimate, `model(high)` and `model-high` thinking aliases, plus automatic `-low/-medium/-high/-xhigh` aliases when safe |
-| Self-hosting | Upstream package channels | Manual PPAP releases and local Docker builds so you know which fork is running |
-
-The intended tradeoff is conservative: PPAP keeps upstream behavior unless a fork feature needs a clear product surface. Real upstream conflicts are handled explicitly instead of hiding fork behavior behind silent rewrites.
-
-## PPAP-Specific Highlights
-
-- **Usage statistics are first-class.** `/v0/management/usage`, `/v0/management/usage/export`, and `/v0/management/usage/import` are restored and backed by local snapshot persistence.
-- **The management panel is part of the product.** The panel source is in [`web/management-panel`](web/management-panel), and release artifacts include the matching single-file `management.html`.
-- **Codex Spark is recognized.** `gpt-5.3-codex-spark` appears in PPAP pricing data using the `gpt-5.3-codex` estimate while official preview pricing settles. See the [Spark announcement](https://openai.com/index/introducing-gpt-5-3-codex-spark/), [Codex rate card](https://help.openai.com/en/articles/11369540-codex-rate-card), and [API pricing](https://openai.com/api/pricing/).
-- **Thinking aliases are standardized.** PPAP supports both `model(high)` and `model-high` for `low`, `medium`, `high`, and `xhigh`, while keeping explicit aliases and exact model names ahead of suffix parsing.
-- **Upstream updates still matter.** Recent upstream Redis usage queue retention support is included, while PPAP's usage persistence behavior remains intact.
-
-## Getting Started
-
-CLIProxyAPI Guides: [https://help.router-for.me/](https://help.router-for.me/)
-
-## Manual Installation
-
-This fork is distributed as release binaries from this repository. Download the asset that matches your platform from the latest Release, then run it directly.
-
-Linux example:
+Download the [latest PPAP release](https://github.com/daishuge/playful-proxy-api-panel/releases/latest), extract the archive for your platform, then start with a local config file:
 
 ```bash
-chmod +x ./cli-proxy-api-linux-amd64
-./cli-proxy-api-linux-amd64 --config ./config.yaml
+cp config.example.yaml config.yaml
+./cli-proxy-api -config ./config.yaml
 ```
 
-Windows example:
+The default HTTP port is `8317`.
 
-```powershell
-.\cli-proxy-api-windows-amd64.exe --config .\config.yaml
-```
-
-Start from [`config.example.yaml`](config.example.yaml), copy it to `config.yaml`, and fill in your own OAuth files, upstream API keys, proxy settings, and management password locally. Do not commit `config.yaml`, `.env`, `auths/`, logs, or generated stores; they are intentionally ignored by this repository.
-
-## Docker Installation
-
-This fork does not publish a separate public Docker image by default. Build the image locally from this repository so the container contains the fork-specific usage statistics changes.
+For Docker self-hosting, build from this repository so the container contains PPAP-specific code:
 
 ```bash
 git clone https://github.com/daishuge/playful-proxy-api-panel.git
@@ -93,172 +48,59 @@ mkdir -p auths logs
 docker compose up -d --build
 ```
 
-The default compose file builds `cliproxyapi-fork:local` from the local `Dockerfile`, maps port `8317`, and mounts:
+Keep `config.yaml`, `.env`, OAuth files, API keys, auth directories, logs, and generated stores out of git.
 
-- `./config.yaml` to `/CLIProxyAPI/config.yaml`
-- `./auths` to `/root/.cli-proxy-api`
-- `./logs` to `/CLIProxyAPI/logs`
+## Configuration Notes
 
-Put your own keys, OAuth files, proxy settings, and management password in those local files/directories. Do not commit them.
+Start from [`config.example.yaml`](config.example.yaml). The most useful PPAP-specific settings are:
 
-## Management API
+- `usage-statistics-enabled`: enable built-in usage snapshots.
+- `usage-statistics-path`: optionally move the usage snapshot away from the config directory.
+- `redis-usage-queue-retention-seconds`: tune Redis usage queue retention when Redis usage queueing is enabled.
+- `oauth-model-alias`: define friendly model aliases while preserving old config compatibility.
 
-see [MANAGEMENT_API.md](https://help.router-for.me/management/api)
+For models that declare thinking levels, PPAP can expose automatic aliases such as:
 
-## Usage Statistics
+```text
+gpt-5.3-codex-spark-low
+gpt-5.3-codex-spark-medium
+gpt-5.3-codex-spark-high
+gpt-5.3-codex-spark-xhigh
+```
 
-This fork restores the built-in `/v0/management/usage`, `/v0/management/usage/export`, and `/v0/management/usage/import` endpoints. The usage snapshot also records cache hit rate, first-byte latency, average latency, TPS, token breakdowns, and per-API/per-model details where the upstream provider returns enough usage data.
+The older parenthesized style still works:
 
-When `usage-statistics-enabled` is true, PPAP automatically persists the usage snapshot to `usage-statistics.json` next to `config.yaml` unless `usage-statistics-path` is set. The existing TUI usage tab displays these metrics in the same card and table style as the original interface. External tools such as [CPA Usage Keeper](https://github.com/Willxup/cpa-usage-keeper) can still be used when you need a separate dashboard.
+```text
+gpt-5.3-codex-spark(high)
+```
 
-## Management Panel Source
+## Codex Spark Pricing
 
-The management panel frontend is maintained in this same repository under [`web/management-panel`](web/management-panel). Releases publish the backend binaries and the single-file `management.html` from the same tag, so the backend auto-update setting can point at this repository directly.
+`gpt-5.3-codex-spark` is included in PPAP pricing data for local usage-cost estimation. Until official preview pricing settles, PPAP temporarily estimates it with the `gpt-5.3-codex` rate.
 
-The previous `daishuge/CLIProxyAPI` repository name is kept as a GitHub redirect after the rename. The older standalone panel repository remains available during the transition, but new work lands here.
+References:
 
-## Amp CLI Support
+- [Introducing GPT-5.3-Codex-Spark](https://openai.com/index/introducing-gpt-5-3-codex-spark/)
+- [Codex rate card](https://help.openai.com/en/articles/11369540-codex-rate-card)
+- [OpenAI API pricing](https://openai.com/api/pricing/)
 
-CLIProxyAPI includes integrated support for [Amp CLI](https://ampcode.com) and Amp IDE extensions, enabling you to use your Google/ChatGPT/Claude OAuth subscriptions with Amp's coding tools:
+## Management
 
-- Provider route aliases for Amp's API patterns (`/api/provider/{provider}/v1...`)
-- Management proxy for OAuth authentication and account features
-- Smart model fallback with automatic routing
-- **Model mapping** to route unavailable models to alternatives (e.g., `claude-opus-4.5` → `claude-sonnet-4`)
-- Security-first design with localhost-only management endpoints
+- Management panel source: [`web/management-panel`](web/management-panel)
+- Management API docs: [help.router-for.me/management/api](https://help.router-for.me/management/api)
+- Usage endpoints: `/v0/management/usage`, `/v0/management/usage/export`, `/v0/management/usage/import`
+- Amp CLI guide: [help.router-for.me/agent-client/amp-cli.html](https://help.router-for.me/agent-client/amp-cli.html)
 
-When you need the request/response shape of a specific backend family, use the provider-specific paths instead of the merged `/v1/...` endpoints:
+The release asset `management.html` is built from the same tag as the backend binaries, so a running PPAP instance can point its panel updater at this repository.
 
-- Use `/api/provider/{provider}/v1/messages` for messages-style backends.
-- Use `/api/provider/{provider}/v1beta/models/...` for model-scoped generate endpoints.
-- Use `/api/provider/{provider}/v1/chat/completions` for chat-completions backends.
+## SDK And Docs
 
-These routes help you select the protocol surface, but they do not by themselves guarantee a unique inference executor when the same client-visible model name is reused across multiple backends. Inference routing is still resolved from the request model/alias. For strict backend pinning, use unique aliases, prefixes, or otherwise avoid overlapping client-visible model names.
-
-**→ [Complete Amp CLI Integration Guide](https://help.router-for.me/agent-client/amp-cli.html)**
-
-## SDK Docs
-
-- Usage: [docs/sdk-usage.md](docs/sdk-usage.md)
-- Advanced (executors & translators): [docs/sdk-advanced.md](docs/sdk-advanced.md)
+- SDK usage: [docs/sdk-usage.md](docs/sdk-usage.md)
+- Advanced executors and translators: [docs/sdk-advanced.md](docs/sdk-advanced.md)
 - Access: [docs/sdk-access.md](docs/sdk-access.md)
 - Watcher: [docs/sdk-watcher.md](docs/sdk-watcher.md)
-- Custom Provider Example: `examples/custom-provider`
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## Who is with us?
-
-Those projects are based on CLIProxyAPI:
-
-### [vibeproxy](https://github.com/automazeio/vibeproxy)
-
-Native macOS menu bar app to use your Claude Code & ChatGPT subscriptions with AI coding tools - no API keys needed
-
-### [Subtitle Translator](https://github.com/VjayC/SRT-Subtitle-Translator-Validator)
-
-Browser-based tool to translate SRT subtitles using your Gemini subscription via CLIProxyAPI with automatic validation/error correction - no API keys needed
-
-### [CCS (Claude Code Switch)](https://github.com/kaitranntt/ccs)
-
-CLI wrapper for instant switching between multiple Claude accounts and alternative models (Gemini, Codex, Antigravity) via CLIProxyAPI OAuth - no API keys needed
-
-### [Quotio](https://github.com/nguyenphutrong/quotio)
-
-Native macOS menu bar app that unifies Claude, Gemini, OpenAI, and Antigravity subscriptions with real-time quota tracking and smart auto-failover for AI coding tools like Claude Code, OpenCode, and Droid - no API keys needed.
-
-### [CodMate](https://github.com/loocor/CodMate)
-
-Native macOS SwiftUI app for managing CLI AI sessions (Codex, Claude Code, Gemini CLI) with unified provider management, Git review, project organization, global search, and terminal integration. Integrates CLIProxyAPI to provide OAuth authentication for Codex, Claude, Gemini, and Antigravity, with built-in and third-party provider rerouting through a single proxy endpoint - no API keys needed for OAuth providers.
-
-### [ProxyPilot](https://github.com/Finesssee/ProxyPilot)
-
-Windows-native CLIProxyAPI fork with TUI, system tray, and multi-provider OAuth for AI coding tools - no API keys needed.
-
-### [Claude Proxy VSCode](https://github.com/uzhao/claude-proxy-vscode)
-
-VSCode extension for quick switching between Claude Code models, featuring integrated CLIProxyAPI as its backend with automatic background lifecycle management.
-
-### [ZeroLimit](https://github.com/0xtbug/zero-limit)
-
-Windows desktop app built with Tauri + React for monitoring AI coding assistant quotas via CLIProxyAPI. Track usage across Gemini, Claude, OpenAI Codex, and Antigravity accounts with real-time dashboard, system tray integration, and one-click proxy control - no API keys needed.
-
-### [CPA-XXX Panel](https://github.com/ferretgeek/CPA-X)
-
-A lightweight web admin panel for CLIProxyAPI with health checks, resource monitoring, real-time logs, auto-update, request statistics and pricing display. Supports one-click installation and systemd service.
-
-### [CLIProxyAPI Tray](https://github.com/kitephp/CLIProxyAPI_Tray)
-
-A Windows tray application implemented using PowerShell scripts, without relying on any third-party libraries. The main features include: automatic creation of shortcuts, silent running, password management, channel switching (Main / Plus), and automatic downloading and updating.
-
-### [霖君](https://github.com/wangdabaoqq/LinJun)
-
-霖君 is a cross-platform desktop application for managing AI programming assistants, supporting macOS, Windows, and Linux systems. Unified management of Claude Code, Gemini CLI, OpenAI Codex, and other AI coding tools, with local proxy for multi-account quota tracking and one-click configuration.
-
-### [CLIProxyAPI Dashboard](https://github.com/itsmylife44/cliproxyapi-dashboard)
-
-A modern web-based management dashboard for CLIProxyAPI built with Next.js, React, and PostgreSQL. Features real-time log streaming, structured configuration editing, API key management, OAuth provider integration for Claude/Gemini/Codex, usage analytics, container management, and config sync with OpenCode via companion plugin - no manual YAML editing needed.
-
-### [All API Hub](https://github.com/qixing-jk/all-api-hub)
-
-Browser extension for one-stop management of New API-compatible relay site accounts, featuring balance and usage dashboards, auto check-in, one-click key export to common apps, in-page API availability testing, and channel/model sync and redirection. It integrates with CLIProxyAPI through the Management API for one-click provider import and config sync.
-
-### [Shadow AI](https://github.com/HEUDavid/shadow-ai)
-
-Shadow AI is an AI assistant tool designed specifically for restricted environments. It provides a stealthy operation
-mode without windows or traces, and enables cross-device AI Q&A interaction and control via the local area network (
-LAN). Essentially, it is an automated collaboration layer of "screen/audio capture + AI inference + low-friction delivery",
-helping users to immersively use AI assistants across applications on controlled devices or in restricted environments.
-
-### [ProxyPal](https://github.com/buddingnewinsights/proxypal)
-
-Cross-platform desktop app (macOS, Windows, Linux) wrapping CLIProxyAPI with a native GUI. Connects Claude, ChatGPT, Gemini, GitHub Copilot, and custom OpenAI-compatible endpoints with usage analytics, request monitoring, and auto-configuration for popular coding tools - no API keys needed.
-
-### [CLIProxyAPI Quota Inspector](https://github.com/AllenReder/CLIProxyAPI-Quota-Inspector)
-
-Ready-to-use cross-platform quota inspector for CLIProxyAPI, supporting per-account codex 5h/7d quota windows, plan-based sorting, status coloring, and multi-account summary analytics.
-
-### [CodexCliPlus](https://github.com/C4AL/CodexCliPlus)
-
-Windows-focused, local-first desktop management platform for Codex CLI built on CLIProxyAPI, focused on simplifying local setup, account and runtime management, and providing a more complete Codex CLI experience for local users.
-
-> [!NOTE]
-> If you developed a project based on CLIProxyAPI, please open a PR to add it to this list.
-
-## More choices
-
-Those projects are ports of CLIProxyAPI or inspired by it:
-
-### [9Router](https://github.com/decolua/9router)
-
-A Next.js implementation inspired by CLIProxyAPI, easy to install and use, built from scratch with format translation (OpenAI/Claude/Gemini/Ollama), combo system with auto-fallback, multi-account management with exponential backoff, a Next.js web dashboard, and support for CLI tools (Cursor, Claude Code, Cline, RooCode) - no API keys needed.
-
-### [OmniRoute](https://github.com/diegosouzapw/OmniRoute)
-
-Never stop coding. Smart routing to FREE & low-cost AI models with automatic fallback.
-
-OmniRoute is an AI gateway for multi-provider LLMs: an OpenAI-compatible endpoint with smart routing, load balancing, retries, and fallbacks. Add policies, rate limits, caching, and observability for reliable, cost-aware inference.
-
-### [Playful Proxy API Panel (PPAP)](https://github.com/daishuge/playful-proxy-api-panel)
-
-A public CLIProxyAPI-compatible fork and bundled management panel. It keeps upstream-style usage while restoring built-in usage statistics, adding cache hit rate, first-byte latency, TPS tracking, and Docker-oriented self-hosted installation docs.
-
-> [!NOTE]
-> If you have developed a port of CLIProxyAPI or a project inspired by it, please open a PR to add it to this list.
+- Custom provider example: [`examples/custom-provider`](examples/custom-provider)
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Friendly Links
-
-- [V2EX](https://www.v2ex.com/)
-- [Linux.do](https://linux.do/)
+MIT. See [LICENSE](LICENSE).

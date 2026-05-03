@@ -1,69 +1,45 @@
 # Playful Proxy API Panel (PPAP)
 
-> [!NOTE]
-> **Playful Proxy API Panel (PPAP)** 是 [`router-for-me/CLIProxyAPI`](https://github.com/router-for-me/CLIProxyAPI) 的社区二开版本。它追踪上游兼容性，但产品取向不同：在保留熟悉代理接口的同时，把一体化管理面板、可持久化使用量统计、Codex 模型别名和本地成本估算放进同一条 release 线里维护。
->
-> 如果只需要原版 CLIProxyAPI，请使用上游项目；如果需要上游代理能力 + 内置观测、随版本发布的面板资产、Codex/usage 相关增强，请使用 PPAP。
->
-> 需要 PPAP 专属统计、定价或面板改动时，请从本仓库 Releases 手动下载安装，不要使用上游包渠道。
-
 [English](README.md) | 中文 | [日本語](README_JA.md)
 
-一个为 CLI 提供 OpenAI/Gemini/Claude/Codex 兼容 API 接口的代理服务器。
+**PPAP 是一个面向自托管的 CLIProxyAPI 兼容 fork：内置管理面板、使用量统计、成本估算和更顺手的 Codex 模型别名。**
 
-现已支持通过 OAuth 登录接入 OpenAI Codex（GPT 系列）和 Claude Code。
+它保留 [`router-for-me/CLIProxyAPI`](https://github.com/router-for-me/CLIProxyAPI) 熟悉的 OpenAI/Gemini/Claude/Codex 兼容代理接口，同时补上长期运行时最需要的东西：可持久化的 usage 快照、请求与成本指标、和后端同 tag 发布的管理面板、以及更安全的 thinking 强度别名。
 
-您可以使用本地或多账户的CLI方式，通过任何与 OpenAI（包括Responses）/Gemini/Claude 兼容的客户端和SDK进行访问。
+如果你只想用原版项目，用上游 CLIProxyAPI。  
+如果你想要上游代理能力，同时希望本地看得见用量、延迟、缓存命中和 Codex 强度路由，用 PPAP。
 
-## 功能特性
+## PPAP 有什么不一样
 
-- 为 CLI 模型提供 OpenAI/Gemini/Claude/Codex 兼容的 API 端点
-- 新增 OpenAI Codex（GPT 系列）支持（OAuth 登录）
-- 新增 Claude Code 支持（OAuth 登录）
-- 支持流式与非流式响应
-- 函数调用/工具支持
-- 多模态输入（文本、图片）
-- 多账户支持与轮询负载均衡（Gemini、OpenAI、Claude）
-- 简单的 CLI 身份验证流程（Gemini、OpenAI、Claude）
-- 支持 Gemini AIStudio API 密钥
-- 支持 AI Studio Build 多账户轮询
-- 支持 Gemini CLI 多账户轮询
-- 支持 Claude Code 多账户轮询
-- 支持 OpenAI Codex 多账户轮询
-- 通过配置接入上游 OpenAI 兼容提供商（例如 OpenRouter）
-- 面板前端源码已开源并随本仓库一起维护：[`web/management-panel`](https://github.com/daishuge/playful-proxy-api-panel/tree/main/web/management-panel)
-- 可复用的 Go SDK（见 `docs/sdk-usage_CN.md`）
+- **内置 usage 分析**：恢复 `/v0/management/usage`、导入/导出接口、本地快照持久化，并记录缓存命中率、首字响应时间、平均耗时、TPS、Token 细分、模型/API 汇总。
+- **管理面板和后端同步发布**：前端源码在 [`web/management-panel`](web/management-panel)，每个 release 都带同 tag 构建的 `management.html`。
+- **把 Codex 当主场景维护**：支持 OpenAI Codex OAuth、GPT 模型路由、Spark 定价估算、thinking 强度别名。
+- **thinking 强度写法统一**：`model(high)` 和 `model-high` 都支持，强度为 `low`、`medium`、`high`、`xhigh`；显式 alias 和真实模型名优先。
+- **继续跟上游兼容**：能合的上游更新继续合；当前已纳入 Redis usage queue retention，同时保留 PPAP 自己的 usage persistence。
 
-## 为什么选择 PPAP
+## 核心能力
 
-PPAP 不是单纯套壳面板，也不是重写协议的网关。它是一个面向自托管和长期运行场景的 CLIProxyAPI 兼容 fork：尽量保留上游行为，但把日常运维需要的统计、面板、别名和发布资产收进同一个仓库。
+- OpenAI/Gemini/Claude/Codex 兼容 API 端点
+- OpenAI Codex 和 Claude Code OAuth 登录
+- 流式与非流式响应
+- 函数调用、工具调用、多模态输入
+- 多账户路由和负载均衡
+- Gemini CLI、AI Studio Build、Claude Code、OpenAI Codex、Amp CLI 支持
+- 通过配置接入 OpenAI-compatible 上游，例如 OpenRouter
+- 可复用 Go SDK
 
-| 需求 | 上游 CLIProxyAPI | PPAP |
-| --- | --- | --- |
-| 核心代理兼容性 | 支持 | 支持，并持续合入上游更新 |
-| 内置使用量统计 | 取决于上游当前实现 | 恢复 management usage 接口，支持导入、导出和本地快照持久化 |
-| 运行指标 | 基础请求信息 | 缓存命中率、首字响应时间、平均耗时、TPS、Token 细分、API/model 维度汇总 |
-| 管理面板 | 通常依赖外部面板或单独发布 | 面板源码在本仓库，release 同步发布匹配的 `management.html` |
-| Codex 使用体验 | 多数模型名透传 | Spark 定价估算、`model(high)`/`model-high` 双写法、自动 `-low/-medium/-high/-xhigh` 强度别名 |
-| 自托管发布 | 上游包渠道 | PPAP 手动 release 和本地 Docker 构建，便于确认实际运行的是本 fork |
+## 快速开始
 
-PPAP 的取舍是保守的：不为了“二开”而重写一切。能跟上游兼容的继续兼容；真正冲突的地方会显式处理，而不是把 fork 行为藏在静默改写里。
+从本仓库 [latest Release](https://github.com/daishuge/playful-proxy-api-panel/releases/latest) 下载对应平台压缩包，解压后用本地配置启动：
 
-## PPAP 差异化重点
+```bash
+cp config.example.yaml config.yaml
+./cli-proxy-api -config ./config.yaml
+```
 
-- **使用量统计是一等功能。** 恢复 `/v0/management/usage`、`/v0/management/usage/export`、`/v0/management/usage/import`，并支持自动保存到本地快照。
-- **管理面板和后端同源发布。** 前端源码位于 [`web/management-panel`](web/management-panel)，release 同时产出后端二进制和单文件 `management.html`。
-- **Codex Spark 已纳入定价估算。** `gpt-5.3-codex-spark` 会按 `gpt-5.3-codex` 临时估算价展示，等官方 preview 价格稳定后再更新；参考 [Spark announcement](https://openai.com/index/introducing-gpt-5-3-codex-spark/)、[Codex rate card](https://help.openai.com/en/articles/11369540-codex-rate-card) 和 [API pricing](https://openai.com/api/pricing/)。
-- **思考强度别名标准化。** 同时支持 `model(high)` 和 `model-high`，强度为 `low`、`medium`、`high`、`xhigh`；显式 alias 和真实模型名优先，避免误拆普通带横杠模型名。
-- **继续合入上游有效更新。** 当前已纳入 Redis usage queue retention 配置，并保留 PPAP 自己的 usage persistence 行为。
+默认 HTTP 端口是 `8317`。
 
-## 新手入门
-
-CLIProxyAPI 用户手册： [https://help.router-for.me/](https://help.router-for.me/cn/)
-
-## Docker 安装
-
-本 fork 默认不发布单独的公开 Docker 镜像。建议直接从本仓库源码本地构建镜像，这样容器里一定包含本 fork 的使用量统计改动。
+Docker 自托管建议直接从本仓库构建，确保容器里包含 PPAP 代码：
 
 ```bash
 git clone https://github.com/daishuge/playful-proxy-api-panel.git
@@ -73,176 +49,59 @@ mkdir -p auths logs
 docker compose up -d --build
 ```
 
-默认 `docker-compose.yml` 会从本地 `Dockerfile` 构建 `cliproxyapi-fork:local`，映射 `8317` 端口，并挂载：
+不要把 `config.yaml`、`.env`、OAuth 文件、API key、auth 目录、日志和生成数据提交进 git。
 
-- `./config.yaml` 到 `/CLIProxyAPI/config.yaml`
-- `./auths` 到 `/root/.cli-proxy-api`
-- `./logs` 到 `/CLIProxyAPI/logs`
+## 配置重点
 
-请把自己的 key、OAuth 文件、代理设置和管理密码放在这些本地文件/目录里，不要提交到仓库。
+从 [`config.example.yaml`](config.example.yaml) 开始。PPAP 里最常用的相关配置：
 
-## 管理 API 文档
+- `usage-statistics-enabled`：启用内置使用量快照。
+- `usage-statistics-path`：可选，把快照文件放到指定路径。
+- `redis-usage-queue-retention-seconds`：Redis usage queue 启用时的保留时间。
+- `oauth-model-alias`：配置友好模型别名，同时兼容老配置写法。
 
-请参见 [MANAGEMENT_API_CN.md](https://help.router-for.me/cn/management/api)
+对于明确支持 thinking levels 的模型，PPAP 可以自动暴露：
 
-## 使用量统计
+```text
+gpt-5.3-codex-spark-low
+gpt-5.3-codex-spark-medium
+gpt-5.3-codex-spark-high
+gpt-5.3-codex-spark-xhigh
+```
 
-本二开版本恢复了内置 `/v0/management/usage`、`/v0/management/usage/export` 和 `/v0/management/usage/import` 接口。使用量快照会记录缓存命中率、首字响应时间、平均耗时、TPS、Token 细分，以及按 API / model 汇总的明细；具体字段取决于上游提供商返回的 usage 数据。
+老写法仍然有效：
 
-当 `usage-statistics-enabled` 为 true 时，PPAP 会自动把统计快照持久化到 `config.yaml` 同目录的 `usage-statistics.json`，也可以通过 `usage-statistics-path` 指定路径。现有 TUI 使用量页面会用原来的卡片和表格风格展示这些指标；如果需要专门的外部仪表盘，仍可搭配 [CPA Usage Keeper](https://github.com/Willxup/cpa-usage-keeper) 使用。
+```text
+gpt-5.3-codex-spark(high)
+```
 
-## 管理面板源码
+## Codex Spark 定价
 
-管理面板前端现在和后端维护在同一个仓库中，源码位于 [`web/management-panel`](web/management-panel)。每次 release 会从同一个 tag 发布后端二进制和单文件 `management.html`，因此后端的面板自动更新地址可以直接指向本仓库。
+PPAP 已把 `gpt-5.3-codex-spark` 加入本地 usage 成本估算。官方 preview 定价稳定前，暂时沿用 `gpt-5.3-codex` 估算价。
 
-旧的 `daishuge/CLIProxyAPI` 仓库名在 GitHub 改名后会继续跳转到这里；独立面板仓库也会保留一段时间，方便用户过渡，但新的改动都以本仓库为准。
+参考：
 
-## Amp CLI 支持
+- [Introducing GPT-5.3-Codex-Spark](https://openai.com/index/introducing-gpt-5-3-codex-spark/)
+- [Codex rate card](https://help.openai.com/en/articles/11369540-codex-rate-card)
+- [OpenAI API pricing](https://openai.com/api/pricing/)
 
-CLIProxyAPI 已内置对 [Amp CLI](https://ampcode.com) 和 Amp IDE 扩展的支持，可让你使用自己的 Google/ChatGPT/Claude OAuth 订阅来配合 Amp 编码工具：
+## 管理入口
 
-- 提供商路由别名，兼容 Amp 的 API 路径模式（`/api/provider/{provider}/v1...`）
-- 管理代理，处理 OAuth 认证和账号功能
-- 智能模型回退与自动路由
-- 以安全为先的设计，管理端点仅限 localhost
+- 管理面板源码：[`web/management-panel`](web/management-panel)
+- 管理 API 文档：[help.router-for.me/cn/management/api](https://help.router-for.me/cn/management/api)
+- Usage 接口：`/v0/management/usage`、`/v0/management/usage/export`、`/v0/management/usage/import`
+- Amp CLI 指南：[help.router-for.me/cn/agent-client/amp-cli.html](https://help.router-for.me/cn/agent-client/amp-cli.html)
 
-当你需要某一类后端的请求/响应协议形态时，优先使用 provider-specific 路径，而不是合并后的 `/v1/...` 端点：
+Release 里的 `management.html` 与后端二进制来自同一个 tag，运行中的 PPAP 可以直接把面板更新地址指向本仓库。
 
-- 对于 messages 风格的后端，使用 `/api/provider/{provider}/v1/messages`。
-- 对于按模型路径暴露生成接口的后端，使用 `/api/provider/{provider}/v1beta/models/...`。
-- 对于 chat-completions 风格的后端，使用 `/api/provider/{provider}/v1/chat/completions`。
+## SDK 和文档
 
-这些路径有助于选择协议表面，但当多个后端复用同一个客户端可见模型名时，它们本身并不能保证唯一的推理执行器。实际的推理路由仍然根据请求里的 model/alias 解析。若要严格钉住某个后端，请使用唯一 alias、前缀，或避免让多个后端暴露相同的客户端模型名。
-
-**→ [Amp CLI 完整集成指南](https://help.router-for.me/cn/agent-client/amp-cli.html)**
-
-## SDK 文档
-
-- 使用文档：[docs/sdk-usage_CN.md](docs/sdk-usage_CN.md)
-- 高级（执行器与翻译器）：[docs/sdk-advanced_CN.md](docs/sdk-advanced_CN.md)
-- 认证: [docs/sdk-access_CN.md](docs/sdk-access_CN.md)
-- 凭据加载/更新: [docs/sdk-watcher_CN.md](docs/sdk-watcher_CN.md)
-- 自定义 Provider 示例：`examples/custom-provider`
-
-## 贡献
-
-欢迎贡献！请随时提交 Pull Request。
-
-1. Fork 仓库
-2. 创建您的功能分支（`git checkout -b feature/amazing-feature`）
-3. 提交您的更改（`git commit -m 'Add some amazing feature'`）
-4. 推送到分支（`git push origin feature/amazing-feature`）
-5. 打开 Pull Request
-
-## 谁与我们在一起？
-
-这些项目基于 CLIProxyAPI:
-
-### [vibeproxy](https://github.com/automazeio/vibeproxy)
-
-一个原生 macOS 菜单栏应用，让您可以使用 Claude Code & ChatGPT 订阅服务和 AI 编程工具，无需 API 密钥。
-
-### [Subtitle Translator](https://github.com/VjayC/SRT-Subtitle-Translator-Validator)
-
-一款基于浏览器的 SRT 字幕翻译工具，可通过 CLI 代理 API 使用您的 Gemini 订阅。内置自动验证与错误修正功能，无需 API 密钥。
-
-### [CCS (Claude Code Switch)](https://github.com/kaitranntt/ccs)
-
-CLI 封装器，用于通过 CLIProxyAPI OAuth 即时切换多个 Claude 账户和替代模型（Gemini, Codex, Antigravity），无需 API 密钥。
-
-### [Quotio](https://github.com/nguyenphutrong/quotio)
-
-原生 macOS 菜单栏应用，统一管理 Claude、Gemini、OpenAI 和 Antigravity 订阅，提供实时配额追踪和智能自动故障转移，支持 Claude Code、OpenCode 和 Droid 等 AI 编程工具，无需 API 密钥。
-
-### [CodMate](https://github.com/loocor/CodMate)
-
-原生 macOS SwiftUI 应用，用于管理 CLI AI 会话（Claude Code、Codex、Gemini CLI），提供统一的提供商管理、Git 审查、项目组织、全局搜索和终端集成。集成 CLIProxyAPI 为 Codex、Claude、Gemini 和 Antigravity 提供统一的 OAuth 认证，支持内置和第三方提供商通过单一代理端点重路由 - OAuth 提供商无需 API 密钥。
-
-### [ProxyPilot](https://github.com/Finesssee/ProxyPilot)
-
-原生 Windows CLIProxyAPI 分支，集成 TUI、系统托盘及多服务商 OAuth 认证，专为 AI 编程工具打造，无需 API 密钥。
-
-### [Claude Proxy VSCode](https://github.com/uzhao/claude-proxy-vscode)
-
-一款 VSCode 扩展，提供了在 VSCode 中快速切换 Claude Code 模型的功能，内置 CLIProxyAPI 作为其后端，支持后台自动启动和关闭。
-
-### [ZeroLimit](https://github.com/0xtbug/zero-limit)
-
-Windows 桌面应用，基于 Tauri + React 构建，用于通过 CLIProxyAPI 监控 AI 编程助手配额。支持跨 Gemini、Claude、OpenAI Codex 和 Antigravity 账户的使用量追踪，提供实时仪表盘、系统托盘集成和一键代理控制，无需 API 密钥。
-
-### [CPA-XXX Panel](https://github.com/ferretgeek/CPA-X)
-
-面向 CLIProxyAPI 的 Web 管理面板，提供健康检查、资源监控、日志查看、自动更新、请求统计与定价展示，支持一键安装与 systemd 服务。
-
-### [CLIProxyAPI Tray](https://github.com/kitephp/CLIProxyAPI_Tray)
-
-Windows 托盘应用，基于 PowerShell 脚本实现，不依赖任何第三方库。主要功能包括：自动创建快捷方式、静默运行、密码管理、通道切换（Main / Plus）以及自动下载与更新。
-
-### [霖君](https://github.com/wangdabaoqq/LinJun)
-
-霖君是一款用于管理AI编程助手的跨平台桌面应用，支持macOS、Windows、Linux系统。统一管理Claude Code、Gemini CLI、OpenAI Codex等AI编程工具，本地代理实现多账户配额跟踪和一键配置。
-
-### [CLIProxyAPI Dashboard](https://github.com/itsmylife44/cliproxyapi-dashboard)
-
-一个面向 CLIProxyAPI 的现代化 Web 管理仪表盘，基于 Next.js、React 和 PostgreSQL 构建。支持实时日志流、结构化配置编辑、API Key 管理、Claude/Gemini/Codex 的 OAuth 提供方集成、使用量分析、容器管理，并可通过配套插件与 OpenCode 同步配置，无需手动编辑 YAML。
-
-### [All API Hub](https://github.com/qixing-jk/all-api-hub)
-
-用于一站式管理 New API 兼容中转站账号的浏览器扩展，提供余额与用量看板、自动签到、密钥一键导出到常用应用、网页内 API 可用性测试，以及渠道与模型同步和重定向。支持通过 CLIProxyAPI Management API 一键导入 Provider 与同步配置。
-
-### [Shadow AI](https://github.com/HEUDavid/shadow-ai)
-
-Shadow AI 是一款专为受限环境设计的 AI 辅助工具。提供无窗口、无痕迹的隐蔽运行方式，并通过局域网实现跨设备的 AI 问答交互与控制。本质上是一个「屏幕/音频采集 + AI 推理 + 低摩擦投送」的自动化协作层，帮助用户在受控设备/受限环境下沉浸式跨应用地使用 AI 助手。
-
-### [ProxyPal](https://github.com/buddingnewinsights/proxypal)
-
-跨平台桌面应用（macOS、Windows、Linux），以原生 GUI 封装 CLIProxyAPI。支持连接 Claude、ChatGPT、Gemini、GitHub Copilot 及自定义 OpenAI 兼容端点，具备使用分析、请求监控和热门编程工具自动配置功能，无需 API 密钥。
-
-### [CLIProxyAPI Quota Inspector](https://github.com/AllenReder/CLIProxyAPI-Quota-Inspector)
-
-上手即用的面向 CLIProxyAPI 跨平台配额查询工具，支持按账号展示 codex 5h/7d 配额窗口、按计划排序、状态着色及多账号汇总分析。
-
-### [CodexCliPlus](https://github.com/C4AL/CodexCliPlus)
-
-基于 CLIProxyAPI 的 Windows Codex CLI 本地优先桌面管理平台，聚焦简化本机配置、账号与运行状态管理，并为本地用户提供更完整的 Codex CLI 使用体验。
-
-> [!NOTE]
-> 如果你开发了基于 CLIProxyAPI 的项目，请提交一个 PR（拉取请求）将其添加到此列表中。
-
-## 更多选择
-
-以下项目是 CLIProxyAPI 的移植版或受其启发：
-
-### [9Router](https://github.com/decolua/9router)
-
-基于 Next.js 的实现，灵感来自 CLIProxyAPI，易于安装使用；自研格式转换（OpenAI/Claude/Gemini/Ollama）、组合系统与自动回退、多账户管理（指数退避）、Next.js Web 控制台，并支持 Cursor、Claude Code、Cline、RooCode 等 CLI 工具，无需 API 密钥。
-
-### [OmniRoute](https://github.com/diegosouzapw/OmniRoute)
-
-代码不止，创新不停。智能路由至免费及低成本 AI 模型，并支持自动故障转移。
-
-OmniRoute 是一个面向多供应商大语言模型的 AI 网关：它提供兼容 OpenAI 的端点，具备智能路由、负载均衡、重试及回退机制。通过添加策略、速率限制、缓存和可观测性，确保推理过程既可靠又具备成本意识。
-
-### [Playful Proxy API Panel (PPAP)](https://github.com/daishuge/playful-proxy-api-panel)
-
-一个公开的 CLIProxyAPI 兼容二开版本和配套管理面板，尽量保持与上游一致的使用方式，同时恢复内置使用量统计，并补充缓存命中率、首字响应时间、TPS 记录和面向 Docker 自托管的安装说明。
-
-> [!NOTE]
-> 如果你开发了 CLIProxyAPI 的移植或衍生项目，请提交 PR 将其添加到此列表中。
+- SDK 使用：[docs/sdk-usage_CN.md](docs/sdk-usage_CN.md)
+- 高级执行器与翻译器：[docs/sdk-advanced_CN.md](docs/sdk-advanced_CN.md)
+- 认证与访问：[docs/sdk-access_CN.md](docs/sdk-access_CN.md)
+- 凭据加载/更新：[docs/sdk-watcher_CN.md](docs/sdk-watcher_CN.md)
+- 自定义 Provider 示例：[`examples/custom-provider`](examples/custom-provider)
 
 ## 许可证
 
-此项目根据 MIT 许可证授权 - 有关详细信息，请参阅 [LICENSE](LICENSE) 文件。
-
-## 写给所有中国网友的
-
-QQ 群：188637136（满）、1081218164
-
-或
-
-Telegram 群：https://t.me/CLIProxyAPI
-
-## 友情链接
-
-- [V2EX](https://www.v2ex.com/)
-- [Linux.do](https://linux.do/)
+MIT。见 [LICENSE](LICENSE)。
