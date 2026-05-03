@@ -1,11 +1,11 @@
 # Playful Proxy API Panel (PPAP)
 
 > [!NOTE]
-> This is a community fork of [`router-for-me/CLIProxyAPI`](https://github.com/router-for-me/CLIProxyAPI), maintained as **Playful Proxy API Panel (PPAP)**. It keeps the upstream-compatible behavior and README structure, while restoring built-in usage statistics and adding cache hit rate, first-byte latency, TPS, and related aggregate metrics to the existing management API and TUI surfaces.
+> **Playful Proxy API Panel (PPAP)** is a community fork of [`router-for-me/CLIProxyAPI`](https://github.com/router-for-me/CLIProxyAPI). It tracks upstream compatibility, but makes a different product choice: keep the proxy surface familiar while shipping a first-party management panel, persistent usage accounting, Codex-focused model aliases, and local cost estimation in one release stream.
 >
-> Install this fork manually from this repository's Releases. Do not use the upstream package channel when you want these fork-specific statistics.
+> Use upstream CLIProxyAPI when you want the vanilla project. Use PPAP when you want the upstream proxy plus built-in observability, release-coupled panel assets, and Codex/usage tooling maintained in this repository.
 >
-> The management panel frontend source is open in this repository under [`web/management-panel`](https://github.com/daishuge/playful-proxy-api-panel/tree/main/web/management-panel).
+> Install this fork manually from this repository's Releases. Do not use the upstream package channel when you need PPAP-specific statistics, pricing, or panel changes.
 
 English | [中文](README_CN.md) | [日本語](README_JA.md)
 
@@ -17,7 +17,7 @@ So you can use local or multi-account CLI access with OpenAI(include Responses)/
 
 ## Overview
 
-- OpenAI/Gemini/Claude compatible API endpoints for CLI models
+- OpenAI/Gemini/Claude/Codex compatible API endpoints for CLI models
 - OpenAI Codex support (GPT models) via OAuth login
 - Claude Code support via OAuth login
 - Amp CLI and IDE extensions support with provider routing
@@ -34,6 +34,29 @@ So you can use local or multi-account CLI access with OpenAI(include Responses)/
 - OpenAI-compatible upstream providers via config (e.g., OpenRouter)
 - Open management panel frontend source maintained in this repository: [`web/management-panel`](https://github.com/daishuge/playful-proxy-api-panel/tree/main/web/management-panel)
 - Reusable Go SDK for embedding the proxy (see `docs/sdk-usage.md`)
+
+## Why PPAP
+
+PPAP is not a UI-only wrapper and not a protocol rewrite. It is a maintained fork for people who want CLIProxyAPI compatibility with a tighter self-hosted operations story.
+
+| Need | Upstream CLIProxyAPI | PPAP |
+| --- | --- | --- |
+| Core proxy compatibility | Yes | Yes, tracked through upstream merges |
+| Built-in usage accounting | Limited/upstream-dependent | Restored management endpoints, import/export, and persistent snapshots |
+| Operational metrics | Basic request data | Cache hit rate, first-byte latency, average latency, TPS, token breakdowns, and per-API/per-model rollups |
+| Management panel | External or release-dependent | Frontend source lives in this repo; releases publish matching `management.html` |
+| Codex model ergonomics | Model names mostly pass through | Codex Spark pricing estimate, `model(high)` and `model-high` thinking aliases, plus automatic `-low/-medium/-high/-xhigh` aliases when safe |
+| Self-hosting | Upstream package channels | Manual PPAP releases and local Docker builds so you know which fork is running |
+
+The intended tradeoff is conservative: PPAP keeps upstream behavior unless a fork feature needs a clear product surface. Real upstream conflicts are handled explicitly instead of hiding fork behavior behind silent rewrites.
+
+## PPAP-Specific Highlights
+
+- **Usage statistics are first-class.** `/v0/management/usage`, `/v0/management/usage/export`, and `/v0/management/usage/import` are restored and backed by local snapshot persistence.
+- **The management panel is part of the product.** The panel source is in [`web/management-panel`](web/management-panel), and release artifacts include the matching single-file `management.html`.
+- **Codex Spark is recognized.** `gpt-5.3-codex-spark` appears in PPAP pricing data using the `gpt-5.3-codex` estimate while official preview pricing settles. See the [Spark announcement](https://openai.com/index/introducing-gpt-5-3-codex-spark/), [Codex rate card](https://help.openai.com/en/articles/11369540-codex-rate-card), and [API pricing](https://openai.com/api/pricing/).
+- **Thinking aliases are standardized.** PPAP supports both `model(high)` and `model-high` for `low`, `medium`, `high`, and `xhigh`, while keeping explicit aliases and exact model names ahead of suffix parsing.
+- **Upstream updates still matter.** Recent upstream Redis usage queue retention support is included, while PPAP's usage persistence behavior remains intact.
 
 ## Getting Started
 

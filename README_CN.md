@@ -1,9 +1,11 @@
 # Playful Proxy API Panel (PPAP)
 
 > [!NOTE]
-> 这是 [`router-for-me/CLIProxyAPI`](https://github.com/router-for-me/CLIProxyAPI) 的社区二开版本，维护名为 **Playful Proxy API Panel (PPAP)**。项目尽量保持上游兼容行为和 README 结构不变；主要改动是恢复内置使用量统计，并在现有管理 API 和 TUI 中增加缓存命中率、首字响应时间、TPS 等聚合指标。需要这些二开统计功能时，请从本仓库 Releases 手动下载安装，不要使用上游包渠道。
+> **Playful Proxy API Panel (PPAP)** 是 [`router-for-me/CLIProxyAPI`](https://github.com/router-for-me/CLIProxyAPI) 的社区二开版本。它追踪上游兼容性，但产品取向不同：在保留熟悉代理接口的同时，把一体化管理面板、可持久化使用量统计、Codex 模型别名和本地成本估算放进同一条 release 线里维护。
 >
-> 面板前端也已开源在本仓库，源码入口是 [`web/management-panel`](https://github.com/daishuge/playful-proxy-api-panel/tree/main/web/management-panel)。
+> 如果只需要原版 CLIProxyAPI，请使用上游项目；如果需要上游代理能力 + 内置观测、随版本发布的面板资产、Codex/usage 相关增强，请使用 PPAP。
+>
+> 需要 PPAP 专属统计、定价或面板改动时，请从本仓库 Releases 手动下载安装，不要使用上游包渠道。
 
 [English](README.md) | 中文 | [日本語](README_JA.md)
 
@@ -31,6 +33,29 @@
 - 通过配置接入上游 OpenAI 兼容提供商（例如 OpenRouter）
 - 面板前端源码已开源并随本仓库一起维护：[`web/management-panel`](https://github.com/daishuge/playful-proxy-api-panel/tree/main/web/management-panel)
 - 可复用的 Go SDK（见 `docs/sdk-usage_CN.md`）
+
+## 为什么选择 PPAP
+
+PPAP 不是单纯套壳面板，也不是重写协议的网关。它是一个面向自托管和长期运行场景的 CLIProxyAPI 兼容 fork：尽量保留上游行为，但把日常运维需要的统计、面板、别名和发布资产收进同一个仓库。
+
+| 需求 | 上游 CLIProxyAPI | PPAP |
+| --- | --- | --- |
+| 核心代理兼容性 | 支持 | 支持，并持续合入上游更新 |
+| 内置使用量统计 | 取决于上游当前实现 | 恢复 management usage 接口，支持导入、导出和本地快照持久化 |
+| 运行指标 | 基础请求信息 | 缓存命中率、首字响应时间、平均耗时、TPS、Token 细分、API/model 维度汇总 |
+| 管理面板 | 通常依赖外部面板或单独发布 | 面板源码在本仓库，release 同步发布匹配的 `management.html` |
+| Codex 使用体验 | 多数模型名透传 | Spark 定价估算、`model(high)`/`model-high` 双写法、自动 `-low/-medium/-high/-xhigh` 强度别名 |
+| 自托管发布 | 上游包渠道 | PPAP 手动 release 和本地 Docker 构建，便于确认实际运行的是本 fork |
+
+PPAP 的取舍是保守的：不为了“二开”而重写一切。能跟上游兼容的继续兼容；真正冲突的地方会显式处理，而不是把 fork 行为藏在静默改写里。
+
+## PPAP 差异化重点
+
+- **使用量统计是一等功能。** 恢复 `/v0/management/usage`、`/v0/management/usage/export`、`/v0/management/usage/import`，并支持自动保存到本地快照。
+- **管理面板和后端同源发布。** 前端源码位于 [`web/management-panel`](web/management-panel)，release 同时产出后端二进制和单文件 `management.html`。
+- **Codex Spark 已纳入定价估算。** `gpt-5.3-codex-spark` 会按 `gpt-5.3-codex` 临时估算价展示，等官方 preview 价格稳定后再更新；参考 [Spark announcement](https://openai.com/index/introducing-gpt-5-3-codex-spark/)、[Codex rate card](https://help.openai.com/en/articles/11369540-codex-rate-card) 和 [API pricing](https://openai.com/api/pricing/)。
+- **思考强度别名标准化。** 同时支持 `model(high)` 和 `model-high`，强度为 `low`、`medium`、`high`、`xhigh`；显式 alias 和真实模型名优先，避免误拆普通带横杠模型名。
+- **继续合入上游有效更新。** 当前已纳入 Redis usage queue retention 配置，并保留 PPAP 自己的 usage persistence 行为。
 
 ## 新手入门
 
