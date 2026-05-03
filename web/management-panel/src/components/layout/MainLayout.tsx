@@ -650,7 +650,11 @@ export function MainLayout() {
           className={`sidebar ${sidebarOpen ? 'open' : ''} ${sidebarCollapsed ? 'collapsed' : ''}`}
         >
           <div className="sidebar-brand" title={fullBrandName}>
-            <img src={INLINE_LOGO_JPEG} alt="PPAP logo" className="sidebar-brand-logo" />
+            <img
+              src={INLINE_LOGO_JPEG}
+              alt="Playful Proxy API Panel logo"
+              className="sidebar-brand-logo"
+            />
             {showSidebarLabels && <span className="sidebar-brand-title">{abbrBrandName}</span>}
           </div>
 

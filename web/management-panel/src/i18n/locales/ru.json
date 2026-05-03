@@ -57,8 +57,8 @@
     "unsaved_changes_message": "У вас есть несохранённые изменения. Если вы уйдёте, они будут потеряны. Выйти?"
   },
   "title": {
-    "main": "daishuge/cpa",
-    "login": "daishuge/cpa",
+    "main": "Playful Proxy API Panel",
+    "login": "Playful Proxy API Panel",
     "abbr": "PPAP"
   },
   "splash": {
@@ -1318,7 +1318,7 @@
   },
   "system_info": {
     "title": "Информация о центре управления",
-    "about_title": "daishuge/cpa",
+    "about_title": "Playful Proxy API Panel",
     "connection_status_title": "Статус подключения",
     "api_status_label": "Статус API:",
     "config_status_label": "Статус конфигурации:",

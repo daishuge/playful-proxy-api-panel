@@ -57,8 +57,8 @@
     "unsaved_changes_message": "你有未保存的更改，离开后将丢失这些更改。确定要离开吗？"
   },
   "title": {
-    "main": "daishuge/cpa",
-    "login": "daishuge/cpa",
+    "main": "Playful Proxy API Panel",
+    "login": "Playful Proxy API Panel",
     "abbr": "PPAP"
   },
   "splash": {
@@ -124,7 +124,7 @@
   },
   "dashboard": {
     "title": "仪表盘",
-    "subtitle": "欢迎使用 daishuge/cpa",
+    "subtitle": "欢迎使用 Playful Proxy API Panel",
     "openai_providers": "OpenAI 提供商",
     "quick_actions": "快捷操作",
     "current_config": "当前配置",
@@ -1321,7 +1321,7 @@
   },
   "system_info": {
     "title": "管理中心信息",
-    "about_title": "daishuge/cpa",
+    "about_title": "Playful Proxy API Panel",
     "connection_status_title": "连接状态",
     "api_status_label": "API 状态:",
     "config_status_label": "配置状态:",

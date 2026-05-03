@@ -27,7 +27,7 @@ export function SplashScreen({ onFinish, fadeOut = false }: SplashScreenProps) {
   return (
     <div className={`splash-screen ${fadeOut ? 'fade-out' : ''}`}>
       <div className="splash-content">
-        <img src={INLINE_LOGO_JPEG} alt="PPAP" className="splash-logo" />
+        <img src={INLINE_LOGO_JPEG} alt="Playful Proxy API Panel" className="splash-logo" />
         <h1 className="splash-title" aria-label={t('splash.title')}>
           <span>{t('splash.title_line_1')}</span>
           <span>{t('splash.title_line_2')}</span>
