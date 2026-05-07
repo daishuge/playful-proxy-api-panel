@@ -1,12 +1,19 @@
-import { type ChangeEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { type ChangeEvent, type CSSProperties, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import {
   IconChartLine,
+  IconDiamond,
   IconDollarSign,
   IconDownload,
+  IconKey,
+  IconModelCluster,
   IconRefreshCw,
+  IconSatellite,
+  IconShield,
+  IconTimer,
+  IconTrendingUp,
   IconUpload,
 } from '@/components/ui/icons';
 import pricingConfigRaw from '@/data/openaiModelPricing.json?raw';
@@ -83,6 +90,34 @@ interface TrendPoint {
   failures: number;
   tokens: number;
   cost: number;
+}
+
+interface ActivityWindowSummary {
+  key: '1h' | '4h' | '8h' | '24h';
+  hours: number;
+  requests: number;
+  failures: number;
+  tokens: number;
+  cost: number;
+  rpm: number;
+  tpm: number;
+  averageLatencyMs: number;
+}
+
+interface HourActivityBucket {
+  key: string;
+  label: string;
+  requests: number;
+  failures: number;
+  tokens: number;
+  cost: number;
+}
+
+interface TokenBreakdownItem {
+  key: 'input' | 'cached' | 'output' | 'reasoning';
+  label: string;
+  value: number;
+  className: string;
 }
 
 const pricingConfig = JSON.parse(pricingConfigRaw) as PricingConfig;
@@ -301,6 +336,156 @@ const createDateKey = (date: Date): string =>
 
 const createHourKey = (date: Date): string => `${createDateKey(date)} ${String(date.getHours()).padStart(2, '0')}:00`;
 
+const createHourLabel = (date: Date): string => `${String(date.getHours()).padStart(2, '0')}:00`;
+
+const activityWindowDefinitions: ReadonlyArray<Pick<ActivityWindowSummary, 'key' | 'hours'>> = [
+  { key: '1h', hours: 1 },
+  { key: '4h', hours: 4 },
+  { key: '8h', hours: 8 },
+  { key: '24h', hours: 24 },
+];
+
+const summarizeActivityWindow = (
+  records: DetailRecord[],
+  windowDefinition: Pick<ActivityWindowSummary, 'key' | 'hours'>,
+  nowMs: number
+): ActivityWindowSummary => {
+  const startMs = nowMs - windowDefinition.hours * 60 * 60 * 1000;
+  const scoped = records.filter((record) => record.timestampMs > 0 && record.timestampMs >= startMs);
+  const requests = scoped.length;
+  const failures = scoped.filter((record) => record.detail.failed).length;
+  const tokens = scoped.reduce((total, record) => total + safeNumber(record.detail.tokens?.total_tokens), 0);
+  const cost = scoped.reduce((total, record) => total + (record.cost ?? 0), 0);
+  const latencySamples = scoped.filter((record) => safeNumber(record.detail.latency_ms) > 0);
+  const minutes = Math.max(windowDefinition.hours * 60, 1);
+
+  return {
+    ...windowDefinition,
+    requests,
+    failures,
+    tokens,
+    cost,
+    rpm: requests / minutes,
+    tpm: tokens / minutes,
+    averageLatencyMs: average(
+      latencySamples.reduce((total, record) => total + safeNumber(record.detail.latency_ms), 0),
+      latencySamples.length
+    ),
+  };
+};
+
+const makeRecentHourBuckets = (records: DetailRecord[], hours: number, nowMs: number): HourActivityBucket[] => {
+  const buckets = new Map<string, HourActivityBucket>();
+  for (let i = hours - 1; i >= 0; i -= 1) {
+    const date = new Date(nowMs - i * 60 * 60 * 1000);
+    const key = createHourKey(date);
+    buckets.set(key, {
+      key,
+      label: createHourLabel(date),
+      requests: 0,
+      failures: 0,
+      tokens: 0,
+      cost: 0,
+    });
+  }
+
+  const startMs = nowMs - hours * 60 * 60 * 1000;
+  records
+    .filter((record) => record.timestampMs > 0 && record.timestampMs >= startMs)
+    .forEach((record) => {
+      const date = new Date(record.timestampMs);
+      const key = createHourKey(date);
+      const bucket =
+        buckets.get(key) ??
+        {
+          key,
+          label: createHourLabel(date),
+          requests: 0,
+          failures: 0,
+          tokens: 0,
+          cost: 0,
+        };
+      bucket.requests += 1;
+      bucket.failures += record.detail.failed ? 1 : 0;
+      bucket.tokens += safeNumber(record.detail.tokens?.total_tokens);
+      bucket.cost += record.cost ?? 0;
+      buckets.set(key, bucket);
+    });
+
+  return Array.from(buckets.values()).sort((a, b) => a.key.localeCompare(b.key));
+};
+
+const summarizeTokenBreakdown = (records: DetailRecord[], usage: UsageStatisticsSnapshot) => {
+  if (records.length) {
+    return records.reduce(
+      (totals, record) => {
+        const tokens = record.detail.tokens;
+        const inputTokens = safeNumber(tokens?.input_tokens);
+        const cachedTokens = safeNumber(tokens?.cached_tokens);
+        totals.inputTokens += Math.max(inputTokens - cachedTokens, 0);
+        totals.cachedTokens += cachedTokens;
+        totals.outputTokens += safeNumber(tokens?.output_tokens);
+        totals.reasoningTokens += safeNumber(tokens?.reasoning_tokens);
+        return totals;
+      },
+      { inputTokens: 0, cachedTokens: 0, outputTokens: 0, reasoningTokens: 0 }
+    );
+  }
+
+  const inputTokens = safeNumber(usage.total_input_tokens);
+  const cachedTokens = safeNumber(usage.total_cached_tokens);
+  return {
+    inputTokens: Math.max(inputTokens - cachedTokens, 0),
+    cachedTokens,
+    outputTokens: Math.max(safeNumber(usage.total_tokens) - inputTokens, 0),
+    reasoningTokens: 0,
+  };
+};
+
+const findPeakBucket = (
+  records: DetailRecord[],
+  usage: UsageStatisticsSnapshot
+): HourActivityBucket | null => {
+  if (records.length) {
+    const buckets = new Map<string, HourActivityBucket>();
+    records.forEach((record) => {
+      if (record.timestampMs <= 0) return;
+      const date = new Date(record.timestampMs);
+      const key = createHourKey(date);
+      const bucket =
+        buckets.get(key) ??
+        {
+          key,
+          label: key.slice(5),
+          requests: 0,
+          failures: 0,
+          tokens: 0,
+          cost: 0,
+        };
+      bucket.requests += 1;
+      bucket.failures += record.detail.failed ? 1 : 0;
+      bucket.tokens += safeNumber(record.detail.tokens?.total_tokens);
+      bucket.cost += record.cost ?? 0;
+      buckets.set(key, bucket);
+    });
+    return Array.from(buckets.values()).sort((a, b) => b.requests - a.requests)[0] ?? null;
+  }
+
+  const requestHours = usage.requests_by_hour ?? {};
+  return (
+    Object.entries(requestHours)
+      .map(([hour, requests]) => ({
+        key: hour,
+        label: `${hour}:00`,
+        requests: safeNumber(requests),
+        failures: 0,
+        tokens: safeNumber(usage.tokens_by_hour?.[hour]),
+        cost: 0,
+      }))
+      .sort((a, b) => b.requests - a.requests)[0] ?? null
+  );
+};
+
 const trendLabel = (key: string, span: TrendSpan): string => {
   if (span === '24h') return key.slice(11);
   if (span === 'all' && key.length === 7) return key;
@@ -445,6 +630,7 @@ export function UsagePage() {
   const [activeTab, setActiveTab] = useState<BreakdownTab>('models');
   const [trendSpan, setTrendSpan] = useState<TrendSpan>('7d');
   const [trendMetric, setTrendMetric] = useState<TrendMetric>('requests');
+  const [snapshotNowMs, setSnapshotNowMs] = useState(() => Date.now());
 
   const importInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -504,6 +690,15 @@ export function UsagePage() {
     (value: number | null | undefined) => (value === null || value === undefined ? '-' : currencyFormatter.format(value)),
     [currencyFormatter]
   );
+  const formatRate = useCallback(
+    (value: number | null | undefined) => {
+      const numeric = safeNumber(value);
+      if (numeric >= 100) return numberFormatter.format(Math.round(numeric));
+      if (numeric >= 10) return numeric.toFixed(1);
+      return numeric.toFixed(2);
+    },
+    [numberFormatter]
+  );
   const formatTimestamp = useCallback(
     (timestampMs: number) => {
       if (!timestampMs) return '-';
@@ -546,6 +741,15 @@ export function UsagePage() {
     [detailRecords]
   );
 
+  const nowMs = snapshotNowMs;
+  const activityWindowSummaries = useMemo(
+    () => activityWindowDefinitions.map((definition) => summarizeActivityWindow(detailRecords, definition, nowMs)),
+    [detailRecords, nowMs]
+  );
+  const recentHourBuckets = useMemo(() => makeRecentHourBuckets(detailRecords, 24, nowMs), [detailRecords, nowMs]);
+  const tokenBreakdown = useMemo(() => summarizeTokenBreakdown(detailRecords, usage), [detailRecords, usage]);
+  const peakBucket = useMemo(() => findPeakBucket(detailRecords, usage), [detailRecords, usage]);
+
   const trendRows = useMemo(
     () => makeTrendBuckets(detailRecords, usage, trendSpan),
     [detailRecords, trendSpan, usage]
@@ -553,11 +757,65 @@ export function UsagePage() {
 
   const topModel = modelRows[0]?.label ?? '-';
   const topKey = keyRows[0]?.label ?? '-';
+  const last24hSummary = activityWindowSummaries.find((summary) => summary.key === '24h');
+  const failedRate = safeNumber(usage.total_requests) > 0 ? (failedRequests / safeNumber(usage.total_requests)) * 100 : 0;
+  const lastSeenMs = detailRecords.reduce((latest, record) => Math.max(latest, record.timestampMs), 0);
+  const activeDays =
+    Object.keys(usage.requests_by_day ?? {}).length ||
+    new Set(detailRecords.map((record) => (record.timestampMs > 0 ? createDateKey(new Date(record.timestampMs)) : '')).filter(Boolean)).size;
+  const activeHours =
+    detailRecords.length > 0
+      ? new Set(detailRecords.map((record) => (record.timestampMs > 0 ? createHourKey(new Date(record.timestampMs)) : '')).filter(Boolean)).size
+      : Object.keys(usage.requests_by_hour ?? {}).length;
+  const tokenBreakdownTotal =
+    tokenBreakdown.inputTokens +
+    tokenBreakdown.cachedTokens +
+    tokenBreakdown.outputTokens +
+    tokenBreakdown.reasoningTokens;
+  const recentActivityMax = Math.max(...recentHourBuckets.map((bucket) => bucket.requests), 1);
+  const tokenBreakdownItems = useMemo<TokenBreakdownItem[]>(
+    () => [
+      {
+        key: 'input',
+        label: t('usage_statistics.uncached_input_tokens'),
+        value: tokenBreakdown.inputTokens,
+        className: styles.tokenInput,
+      },
+      {
+        key: 'cached',
+        label: t('usage_statistics.cached_tokens'),
+        value: tokenBreakdown.cachedTokens,
+        className: styles.tokenCached,
+      },
+      {
+        key: 'output',
+        label: t('usage_statistics.output_tokens'),
+        value: tokenBreakdown.outputTokens,
+        className: styles.tokenOutput,
+      },
+      {
+        key: 'reasoning',
+        label: t('usage_statistics.reasoning_tokens'),
+        value: tokenBreakdown.reasoningTokens,
+        className: styles.tokenReasoning,
+      },
+    ],
+    [t, tokenBreakdown]
+  );
+  const topDimensionGroups = useMemo(
+    () => [
+      { key: 'models', title: t('usage_statistics.top_models'), rows: modelRows.slice(0, 5) },
+      { key: 'apis', title: t('usage_statistics.top_apis'), rows: apiRows.slice(0, 5) },
+      { key: 'keys', title: t('usage_statistics.top_keys'), rows: keyRows.slice(0, 5) },
+    ],
+    [apiRows, keyRows, modelRows, t]
+  );
 
   const loadUsage = useCallback(async () => {
     if (connectionStatus !== 'connected') {
       setLoading(false);
       setResponse(null);
+      setSnapshotNowMs(Date.now());
       setError(t('usage_statistics.connection_required'));
       return;
     }
@@ -567,6 +825,7 @@ export function UsagePage() {
     try {
       const data = await usageApi.getStatistics();
       setResponse(data);
+      setSnapshotNowMs(Date.now());
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : t('notification.refresh_failed');
       setError(message);
@@ -777,17 +1036,159 @@ export function UsagePage() {
       {error && <div className={styles.errorBox}>{error}</div>}
 
       <section className={styles.metricGrid} aria-label={t('usage_statistics.summary')}>
-        {renderMetric(t('usage_statistics.total_requests'), formatNumber(usage.total_requests), `${formatNumber(usage.success_count)} ${t('usage_statistics.success')} / ${formatNumber(failedRequests)} ${t('usage_statistics.failed')}`)}
-        {renderMetric(t('usage_statistics.estimated_cost'), formatCost(estimatedTotalCost), t('usage_statistics.priced_requests', { count: pricedRequestCount }))}
-        {renderMetric(t('usage_statistics.cache_hit_rate'), formatPercent(usage.cache_hit_rate), `${formatNumber(usage.total_cached_tokens)} ${t('usage_statistics.cached_tokens')}`)}
-        {renderMetric(t('usage_statistics.first_byte_latency'), formatLatency(usage.average_first_byte_latency_ms), t('usage_statistics.average_value'))}
-        {renderMetric(t('usage_statistics.tps'), safeNumber(usage.tps).toFixed(2), t('usage_statistics.total_throughput'))}
-        {renderMetric(t('usage_statistics.total_tokens'), formatNumber(usage.total_tokens), `${formatNumber(usage.total_input_tokens)} in / ${formatNumber(totalOutputTokens)} out`)}
+        {renderMetric(t('usage_statistics.total_requests'), formatNumber(usage.total_requests), `${formatNumber(usage.success_count)} ${t('usage_statistics.success')} / ${formatNumber(failedRequests)} ${t('usage_statistics.failed')}`, <IconSatellite size={16} />)}
+        {renderMetric(t('usage_statistics.estimated_cost'), formatCost(estimatedTotalCost), t('usage_statistics.priced_requests', { count: pricedRequestCount }), <IconDollarSign size={16} />)}
+        {renderMetric(t('usage_statistics.cache_hit_rate'), formatPercent(usage.cache_hit_rate), `${formatNumber(usage.total_cached_tokens)} ${t('usage_statistics.cached_tokens')}`, <IconShield size={16} />)}
+        {renderMetric(t('usage_statistics.first_byte_latency'), formatLatency(usage.average_first_byte_latency_ms), t('usage_statistics.average_value'), <IconTimer size={16} />)}
+        {renderMetric(t('usage_statistics.average_latency'), formatLatency(usage.average_latency_ms), t('usage_statistics.average_value'), <IconTimer size={16} />)}
+        {renderMetric(t('usage_statistics.tps'), safeNumber(usage.tps).toFixed(2), t('usage_statistics.total_throughput'), <IconTrendingUp size={16} />)}
+        {renderMetric(t('usage_statistics.total_tokens'), formatNumber(usage.total_tokens), `${formatNumber(usage.total_input_tokens)} in / ${formatNumber(totalOutputTokens)} out`, <IconDiamond size={16} />)}
+        {renderMetric(t('usage_statistics.recent_24h'), formatNumber(last24hSummary?.requests), t('usage_statistics.recent_window_sub', { tokens: formatCompact(last24hSummary?.tokens), failed: formatNumber(last24hSummary?.failures) }), <IconChartLine size={16} />)}
+        {renderMetric(t('usage_statistics.failure_rate'), formatPercent(failedRate), `${formatNumber(failedRequests)} / ${formatNumber(usage.total_requests)}`, <IconShield size={16} />)}
+        {renderMetric(t('usage_statistics.active_dimensions'), `${formatNumber(apiRows.length)} / ${formatNumber(modelRows.length)} / ${formatNumber(keyRows.length)}`, t('usage_statistics.active_dimensions_sub'), <IconModelCluster size={16} />)}
+        {renderMetric(t('usage_statistics.last_request'), formatTimestamp(lastSeenMs), t('usage_statistics.active_period_sub', { days: formatNumber(activeDays), hours: formatNumber(activeHours) }), <IconTimer size={16} />)}
+        {renderMetric(t('usage_statistics.peak_hour'), peakBucket ? `${peakBucket.label} · ${formatNumber(peakBucket.requests)}` : '-', peakBucket ? t('usage_statistics.recent_window_sub', { tokens: formatCompact(peakBucket.tokens), failed: formatNumber(peakBucket.failures) }) : t('usage_statistics.no_timeline'), <IconTrendingUp size={16} />)}
         {renderMetric(t('usage_statistics.top_model'), topModel, t('usage_statistics.by_requests'), <IconChartLine size={16} />)}
-        {renderMetric(t('usage_statistics.top_key'), topKey, t('usage_statistics.by_requests'))}
+        {renderMetric(t('usage_statistics.top_key'), topKey, t('usage_statistics.by_requests'), <IconKey size={16} />)}
       </section>
 
       {!loading && !hasUsage && <div className={styles.emptyState}>{t('usage_statistics.empty')}</div>}
+
+      <div className={styles.insightGrid}>
+        <Card title={t('usage_statistics.recent_activity_title')}>
+          <div className={styles.activityWindowGrid}>
+            {activityWindowSummaries.map((summary) => (
+              <div key={summary.key} className={styles.activityWindow}>
+                <span className={styles.activityWindowLabel}>{t(`usage_statistics.activity_window_${summary.key}`)}</span>
+                <strong>{formatNumber(summary.requests)}</strong>
+                <span>{t('usage_statistics.recent_window_sub', { tokens: formatCompact(summary.tokens), failed: formatNumber(summary.failures) })}</span>
+                <span>{t('usage_statistics.rate_window_sub', { rpm: formatRate(summary.rpm), tpm: formatRate(summary.tpm) })}</span>
+              </div>
+            ))}
+          </div>
+          <div className={styles.activityBars} aria-label={t('usage_statistics.recent_activity_title')}>
+            {recentHourBuckets.map((bucket) => {
+              const height = bucket.requests > 0 ? 16 + (bucket.requests / recentActivityMax) * 84 : 6;
+              return (
+                <div key={bucket.key} className={styles.activityBarSlot}>
+                  <div
+                    className={`${styles.activityBar} ${bucket.failures > 0 ? styles.activityBarWarning : ''}`}
+                    title={t('usage_statistics.activity_hour_label', {
+                      hour: bucket.key,
+                      requests: formatNumber(bucket.requests),
+                      tokens: formatCompact(bucket.tokens),
+                      failed: formatNumber(bucket.failures),
+                    })}
+                  >
+                    <span
+                      className={styles.activityBarFill}
+                      style={{ height: `${height}%` } as CSSProperties}
+                    />
+                  </div>
+                  <span>{bucket.label}</span>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+
+        <Card title={t('usage_statistics.health_title')}>
+          <div className={styles.healthSummary}>
+            <div className={styles.healthRateBlock}>
+              <span>{t('usage_statistics.success_rate')}</span>
+              <strong>{formatPercent(100 - failedRate)}</strong>
+              <small>{formatNumber(usage.success_count)} {t('usage_statistics.success')} / {formatNumber(failedRequests)} {t('usage_statistics.failed')}</small>
+            </div>
+            <div className={styles.healthTrack}>
+              <span
+                className={styles.healthSuccess}
+                style={{
+                  width: `${safeNumber(usage.total_requests) > 0 ? (safeNumber(usage.success_count) / safeNumber(usage.total_requests)) * 100 : 0}%`,
+                }}
+              />
+              <span
+                className={styles.healthFailure}
+                style={{
+                  width: `${safeNumber(usage.total_requests) > 0 ? (failedRequests / safeNumber(usage.total_requests)) * 100 : 0}%`,
+                }}
+              />
+            </div>
+          </div>
+          <div className={styles.compactFacts}>
+            <div>
+              <span>{t('usage_statistics.details_captured')}</span>
+              <strong>{formatNumber(detailRecords.length)}</strong>
+            </div>
+            <div>
+              <span>{t('usage_statistics.active_days')}</span>
+              <strong>{formatNumber(activeDays)}</strong>
+            </div>
+            <div>
+              <span>{t('usage_statistics.active_hours')}</span>
+              <strong>{formatNumber(activeHours)}</strong>
+            </div>
+            <div>
+              <span>{t('usage_statistics.peak_hour')}</span>
+              <strong>{peakBucket ? `${peakBucket.label} · ${formatNumber(peakBucket.requests)}` : '-'}</strong>
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      <div className={styles.insightGrid}>
+        <Card title={t('usage_statistics.token_breakdown_title')}>
+          <div className={styles.breakdownList}>
+            {tokenBreakdownItems.map((item) => {
+              const percentage = tokenBreakdownTotal > 0 ? (item.value / tokenBreakdownTotal) * 100 : 0;
+              return (
+                <div key={item.key} className={styles.breakdownRow}>
+                  <div className={styles.breakdownLabelRow}>
+                    <span className={styles.breakdownLabel}>
+                      <span className={`${styles.breakdownDot} ${item.className}`} />
+                      {item.label}
+                    </span>
+                    <strong>{formatNumber(item.value)}</strong>
+                  </div>
+                  <div className={styles.breakdownTrack}>
+                    <span className={`${styles.breakdownFill} ${item.className}`} style={{ width: `${percentage}%` }} />
+                  </div>
+                  <span className={styles.breakdownPercent}>{percentage.toFixed(1)}%</span>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+
+        <Card title={t('usage_statistics.top_dimensions_title')}>
+          <div className={styles.topLists}>
+            {topDimensionGroups.map((group) => {
+              const maxRequests = Math.max(...group.rows.map((row) => row.requests), 1);
+              return (
+                <div key={group.key} className={styles.topList}>
+                  <h3>{group.title}</h3>
+                  {group.rows.length ? (
+                    group.rows.map((row) => (
+                      <div key={`${group.key}-${row.id}`} className={styles.topListRow}>
+                        <div className={styles.topListMeta}>
+                          <span className={styles.monoCell}>{row.label}</span>
+                          <small>
+                            {formatNumber(row.requests)} {t('usage_statistics.requests')} · {formatCompact(row.tokens)} {t('usage_statistics.tokens')}
+                          </small>
+                        </div>
+                        <div className={styles.topListBar}>
+                          <span style={{ width: `${(row.requests / maxRequests) * 100}%` }} />
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className={styles.emptyInline}>{t('usage_statistics.no_rows')}</div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      </div>
 
       <Card
         title={t('usage_statistics.trend_title')}
